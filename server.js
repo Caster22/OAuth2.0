@@ -3,62 +3,35 @@ const cors = require('cors');
 const path = require('path');
 const hbs = require('express-handlebars');
 const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20');
+const passportSetup = require('./config/passport');
 const session = require('express-session');
 
 const app = express();
 
-// Passport config
-passport.use(new GoogleStrategy({
-    clientID: '711438492722-m605ebn1i9139vvha8to3pv19st2h92o.apps.googleusercontent.com',
-    clientSecret: 'gn6h9GL2a_f25VDXS23CJcD2',
-    callbackURL: 'http://localhost:8000/auth/google/callback'
-  },
-  (accessToken, refreshToken, profile, done) => {
-    done(null, profile);
-  }));
-
-
+// handlebars
 app.engine('hbs', hbs({ extname: 'hbs', layoutsDir: './layouts', defaultLayout: 'main' }));
 app.set('view engine', '.hbs');
 
+// Init session
+app.use(session({ secret: 'anything' }));
+
+// Init passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(path.join(__dirname, '/public')));
-app.use(session({ secret: 'anything' }));
-app.use(passport.initialize());
-app.use(passport.session());
-
-// serialize user when saving to session
-passport.serializeUser((user, serialize) => {
-  serialize(null, user);
-});
-
-// deserialize user when reading from session
-passport.deserializeUser((obj, deserialize) => {
-  deserialize(null, obj);
-});
 
 app.get('/', (req, res) => {
   res.render('index');
 });
 
-app.get('/user/logged', (req, res) => {
-  res.render('logged');
-});
-
-app.get('/user/no-permission', (req, res) => {
-  res.render('noPermission');
-});
-
-app.get('/auth/google', passport.authenticate('google', { scope: ['email', 'profile'] }));
-
-app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/user/no-permission' }),
-  (req, res) => {
-    res.redirect('/user/logged');
-  }
-);
+app.use('/auth', require('./routes/auth.routes'));
+app.use('/user', require('./routes/user.routes'));
 
 app.use('/', (req, res) => {
   res.status(404).render('notFound');
